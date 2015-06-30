@@ -1,118 +1,64 @@
-/*************************************************************
-
-You should implement your request handler function in this file.
-
-requestHandler is already getting passed to http.createServer()
-in basic-server.js, but it won't work as is.
-
-You'll have to figure out a way to export this function from
-this file and include it in basic-server.js so that it actually works.
-
-*Hint* Check out the node module documentation at http://nodejs.org/api/modules.html.
-
-**************************************************************/
 var exports = module.exports = {};
-var messages = [];
+var messages = {};
 var successResponse = {
     status  : 201,
     success : 'Updated Successfully'
 }
 
-
-
 exports.requestHandler = function(request, response) {
-  // Request and Response come from node's http module.
-  //
-  // They include information about both the incoming request, such as
-  // headers and URL, and about the outgoing response, such as its status
-  // and content.
-  //
-  // Documentation for both request and response can be found in the HTTP section at
-  // http://nodejs.org/documentation/api/
-
-  // Do some basic logging.
-  //
-  // Adding more logging to your server can be an easy way to get passive
-  // debugging help, but you should always be careful about leaving stray
-  // console.logs in your code.
-  console.log("Serving request type " + request.method + " for url " + request.url);
-
-  // The outgoing status.
   var statusCode = 200;
-
-  // See the note below about CORS headers.
   var headers = defaultCorsHeaders;
-
-  // Tell the client we are sending them plain text.
-  //
-  // You will need to change this if you are sending something
-  // other than plain text, like JSON or HTML.
   headers['Content-Type'] = "application/json";
-
-  // .writeHead() writes to the request line and headers of the response,
-  // which includes the status and all headers.
-
-  //console.log(request.url)
-  if(request.url === '/classes/messages/' || request.url === '/classes/messages'){
+  var requestURL = require('url').parse(request.url).path
+  var requestLoc = requestURL.slice(9, requestURL.length-1)
 
       if (request.method == 'OPTIONS') {
         console.log("Sent OPTIONS")
         response.writeHead(statusCode, headers);
       }
-
       if(request.method == 'POST'){
         response.writeHead(201, headers);
         request.on('data', function(chunk) {
           console.log('got %d bytes of data', chunk.length);
           console.log("Received body data:");
           console.log(chunk.toString())
-          messages.push(JSON.parse(chunk.toString()))
+          //Check to see if messages contains anything at that location
+          if(messages[requestLoc]){
+            //check to see if that location contains any messages
+            console.log(requestLoc)
+            console.log(messages)
+            if(messages.requestLoc.results != undefined){
+              //If there are messages grab them, push a new message and reassing messages
+              var messagesArray = messages[requestLoc][results]
+              messagesArray.push(JSON.parse(chunk.toString()))
+              messages[requestLoc][results] = messagesArray
+            }
+          }else{
+            //Since there is no room in messages under that name, we will need to create a new room, and then add messages
+            var arr = [JSON.parse(chunk.toString())];
+            messages[requestLoc] = {results: arr}
+          }
+          console.log(messages)
           response.writeHead(statusCode, headers);
         });
-
         request.on('end', function() {
           console.log("POST Message Received")
-
         });
         response.end(JSON.stringify(successResponse));
       }
-
       if(request.method == "GET"){
-        fs.stat('/classes/messages/', function(err, stat) {
-          if(err == null) {
-            console.log('File exists');
-          } else if(err.code == 'ENOENT') {
-            fs.writeFile('/classes/messages/', 'Some log\n');
-          } else {
-            console.log('Some other error: ', err.code);
-          }
-        });
-        response.writeHead(statusCode, headers);
-        response.write(JSON.stringify({results:messages}))
-
+        //console.log(require('url').parse(request.url))
+        if(messages[requestLoc]){
+          response.write(JSON.stringify(messages[requestLoc]))
+          response.writeHead(200, headers);
+        }else{
+          response.writeHead(404, headers);
+        }
+        //response.write(JSON.stringify({results:messages}))
       }
-  }
-
-  // Make sure to always call response.end() - Node may not send
-  // anything back to the client until you do. The string you pass to
-  // response.end() will be the body of the response - i.e. what shows
-  // up in the browser.
-  //
-  // Calling .end "flushes" the response's internal buffer, forcing
-  // node to actually send all the data over to the client.
-  // response.end("Hello, World!");
   response.end();
 };
 
-// These headers will allow Cross-Origin Resource Sharing (CORS).
-// This code allows this server to talk to websites that
-// are on different domains, for instance, your chat client.
-//
-// Your chat client is running from a url like file://your/chat/client/index.html,
-// which is considered a different domain.
-//
-// Another way to get around this restriction is to serve you chat
-// client from this domain by setting up static file serving.
 var defaultCorsHeaders = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
