@@ -1,67 +1,73 @@
+/*************************************************************
+
+You should implement your request handler function in this file.
+
+requestHandler is already getting passed to http.createServer()
+in basic-server.js, but it won't work as is.
+
+You'll have to figure out a way to export this function from
+this file and include it in basic-server.js so that it actually works.
+
+*Hint* Check out the node module documentation at http://nodejs.org/api/modules.html.
+
+**************************************************************/
 var exports = module.exports = {};
-var messages = {};
-var successResponse = {
-    status  : 201,
-    success : 'Updated Successfully'
-}
+var messages = [];
+var objectIdCounter = 1;
 
-exports.requestHandler = function(request, response) {
-  var statusCode = 200;
-  var headers = defaultCorsHeaders;
-  headers['Content-Type'] = "application/json";
-  var requestURL = require('url').parse(request.url).path
-  var requestLoc = requestURL.slice(9, requestURL.length-1)
-
-      if (request.method == 'OPTIONS') {
-        console.log("Sent OPTIONS")
-        response.writeHead(statusCode, headers);
-      }
-      if(request.method == 'POST'){
-        response.writeHead(201, headers);
-        request.on('data', function(chunk) {
-          console.log('got %d bytes of data', chunk.length);
-          console.log("Received body data:");
-          console.log(chunk.toString())
-          //Check to see if messages contains anything at that location
-          if(messages[requestLoc]){
-            //check to see if that location contains any messages
-            console.log(requestLoc)
-            console.log(messages)
-            if(messages.requestLoc.results != undefined){
-              //If there are messages grab them, push a new message and reassing messages
-              var messagesArray = messages[requestLoc][results]
-              messagesArray.push(JSON.parse(chunk.toString()))
-              messages[requestLoc][results] = messagesArray
-            }
-          }else{
-            //Since there is no room in messages under that name, we will need to create a new room, and then add messages
-            var arr = [JSON.parse(chunk.toString())];
-            messages[requestLoc] = {results: arr}
-          }
-          console.log(messages)
-          response.writeHead(statusCode, headers);
-        });
-        request.on('end', function() {
-          console.log("POST Message Received")
-        });
-        response.end(JSON.stringify(successResponse));
-      }
-      if(request.method == "GET"){
-        //console.log(require('url').parse(request.url))
-        if(messages[requestLoc]){
-          response.write(JSON.stringify(messages[requestLoc]))
-          response.writeHead(200, headers);
-        }else{
-          response.writeHead(404, headers);
-        }
-        //response.write(JSON.stringify({results:messages}))
-      }
-  response.end();
-};
-
-var defaultCorsHeaders = {
+var headers = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
   "access-control-allow-headers": "content-type, accept",
-  "access-control-max-age": 10 // Seconds.
+  "access-control-max-age": 10, // Seconds.
+  'Content-Type': "application/json"
 };
+
+exports.sendResponse = function(response, data, statusCode){
+  statusCode = statusCode || 200;
+  response.writeHead(statusCode, headers);
+  response.end(JSON.stringify(data));
+};
+
+var makeActionHandler = function(actionMap){
+  return function(request, response) {
+    var action = actionMap[request.method];
+    if (action) {
+      action(request, response);
+    } else {
+      exports.sendResponse(response, '', 404);
+    }
+  }
+};
+
+var collectData = function(request, callback){
+  var data = "";
+  request.on('data', function(chunk){
+    data += chunk;
+  });
+  request.on('end', function(){
+    callback(JSON.parse(data));
+  });
+};
+
+var requestAction = {
+  "GET":function(request,response){
+    exports.sendResponse(response, {results: messages});
+  },
+  "POST":function(request,response){
+    collectData(request, function(message){
+      message.objectId = ++objectIdCounter;
+      messages.push(message);
+      exports.sendResponse(response, {objectId: message.objectId}, 201);
+     });
+  },
+  "OPTIONS":function(request,response){
+    console.log("Sending OPTIONS request.")
+    exports.sendResponse(response,null)
+  }
+
+}
+
+exports.requestHandler = makeActionHandler(requestAction)
+
+
