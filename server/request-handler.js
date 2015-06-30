@@ -13,6 +13,12 @@ this file and include it in basic-server.js so that it actually works.
 **************************************************************/
 var exports = module.exports = {};
 var messages = [];
+var successResponse = {
+    status  : 201,
+    success : 'Updated Successfully'
+}
+
+
 
 exports.requestHandler = function(request, response) {
   // Request and Response come from node's http module.
@@ -55,7 +61,7 @@ exports.requestHandler = function(request, response) {
       }
 
       if(request.method == 'POST'){
-        response.writeHead(statusCode, headers);
+        response.writeHead(201, headers);
         request.on('data', function(chunk) {
           console.log('got %d bytes of data', chunk.length);
           console.log("Received body data:");
@@ -66,13 +72,24 @@ exports.requestHandler = function(request, response) {
 
         request.on('end', function() {
           console.log("POST Message Received")
-          response.writeHead(statusCode, headers);
+
         });
+        response.end(JSON.stringify(successResponse));
       }
 
       if(request.method == "GET"){
+        fs.stat('/classes/messages/', function(err, stat) {
+          if(err == null) {
+            console.log('File exists');
+          } else if(err.code == 'ENOENT') {
+            fs.writeFile('/classes/messages/', 'Some log\n');
+          } else {
+            console.log('Some other error: ', err.code);
+          }
+        });
         response.writeHead(statusCode, headers);
         response.write(JSON.stringify({results:messages}))
+
       }
   }
 
